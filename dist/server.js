@@ -18,6 +18,7 @@ const herbal_1 = require("./routes/herbal");
 const privacy_1 = require("./routes/privacy");
 const error_1 = require("./middleware/error");
 const app = (0, express_1.default)();
+app.set('trust proxy', 1);
 app.use((0, helmet_1.default)());
 app.use((0, cors_1.default)({
     origin: '*',
