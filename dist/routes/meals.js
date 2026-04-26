@@ -75,13 +75,28 @@ exports.mealsRouter.get('/daily-stats', auth_1.authMiddleware, async (req, res) 
         const profile = await db_1.prisma.userProfile.findUnique({ where: { userId: req.userId } });
         const caloriesGoal = profile?.goalType === 'fat_loss' ? 1800
             : profile?.goalType === 'muscle_gain' ? 2800 : 2200;
+        // Calculate streak
+        const streakDays = await calculateStreak(req.userId);
+        // Generate nudge
+        const caloriesConsumed = Math.round(meals.reduce((s, m) => s + (m.totalCal ?? 0), 0));
+        const protein = Math.round(meals.reduce((s, m) => s + (m.totalProtein ?? 0), 0));
+        let nudge;
+        if (caloriesConsumed === 0)
+            nudge = 'Start your day by logging your first meal!';
+        else if (protein < 50 && profile?.goalType === 'muscle_gain')
+            nudge = 'Protein is low today — try adding a protein-rich meal.';
+        else if (caloriesConsumed > caloriesGoal * 0.9)
+            nudge = 'Almost at your daily goal — great consistency!';
+        else if (streakDays >= 3)
+            nudge = `${streakDays}-day streak! Keep it going!`;
         return res.json({
-            caloriesConsumed: Math.round(meals.reduce((s, m) => s + (m.totalCal ?? 0), 0)),
+            caloriesConsumed,
             caloriesGoal,
-            protein: Math.round(meals.reduce((s, m) => s + (m.totalProtein ?? 0), 0)),
+            protein,
             carbs: Math.round(meals.reduce((s, m) => s + (m.totalCarbs ?? 0), 0)),
             fat: Math.round(meals.reduce((s, m) => s + (m.totalFat ?? 0), 0)),
-            streakDays: 0,
+            streakDays,
+            nudge,
         });
     }
     catch {
@@ -99,3 +114,23 @@ exports.mealsRouter.delete('/:id', auth_1.authMiddleware, async (req, res) => {
         return res.status(500).json({ error: 'Could not delete meal.' });
     }
 });
+async function calculateStreak(userId) {
+    let streak = 0;
+    const today = new Date();
+    for (let i = 0; i < 30; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        const start = new Date(date);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(date);
+        end.setHours(23, 59, 59, 999);
+        const count = await db_1.prisma.mealLog.count({
+            where: { userId, loggedAt: { gte: start, lte: end } },
+        });
+        if (count > 0)
+            streak++;
+        else if (i > 0)
+            break;
+    }
+    return streak;
+}
