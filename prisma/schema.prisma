@@ -132,3 +132,23 @@ model DataExportRequest {
 
   @@index([userId])
 }
+
+model FoodDatabase {
+  id              String   @id @default(cuid())
+  name            String
+  nameLocal       String?
+  culturalRegion  String?
+  calories100g    Float?
+  protein100g     Float?
+  carbs100g       Float?
+  fat100g         Float?
+  fiber100g       Float?
+  sugar100g       Float?
+  sodium100mg     Float?
+  isAfrican       Boolean  @default(false)
+  tags            String[]
+  verifiedAt      DateTime @default(now())
+
+  @@index([name])
+  @@index([isAfrican])
+}
