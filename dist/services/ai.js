@@ -5,12 +5,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.analyzeFoodImage = analyzeFoodImage;
 exports.analyzeIngredientLabel = analyzeIngredientLabel;
-const openai_1 = __importDefault(require("openai"));
+exports.generateWeeklySummary = generateWeeklySummary;
+exports.generateMealPlan = generateMealPlan;
+exports.transcribeVoice = transcribeVoice;
+const groq_sdk_1 = __importDefault(require("groq-sdk"));
 const safetyFilter_1 = require("../utils/safetyFilter");
-const openai = new openai_1.default({ apiKey: process.env.OPENAI_API_KEY });
+const groq = new groq_sdk_1.default({ apiKey: process.env.GROQ_API_KEY });
 async function analyzeFoodImage(imageBase64, goalType, africanMode) {
     const africanContext = africanMode
-        ? 'This user eats African cuisine. Prioritize identifying African foods accurately: jollof rice, egusi soup, fufu, ugali, plantain, suya, moi moi, banku, kenkey, waakye, groundnut soup, okra soup, injera, nyama choma, cassava, yam, pepper soup, pounded yam, eba, tuwo, kilishi, chapati, pilau, doro wat, shiro, couscous, tagine, and similar dishes.'
+        ? 'This user eats African cuisine. Prioritize identifying African foods: jollof rice, egusi soup, fufu, ugali, plantain, suya, moi moi, banku, kenkey, waakye, groundnut soup, okra soup, injera, nyama choma, cassava, yam, pepper soup, pounded yam, eba, tuwo, kilishi, chapati, pilau, doro wat, shiro, couscous, tagine.'
         : '';
     const prompt = `You are a food nutrition assistant. Analyze this food image carefully.
 
@@ -23,12 +26,10 @@ For each food item visible:
 4. Provide confidence score (0.0 to 1.0)
 
 Rules:
-- Be specific with food names (e.g. "Jollof Rice" not just "rice")
-- Estimate portions realistically based on plate/bowl size
+- Be specific with food names
 - No medical claims or disease references
-- If unsure, give lower confidence score
+- Return ONLY valid JSON, no other text:
 
-Return ONLY valid JSON, no other text:
 {
   "items": [
     {
@@ -43,18 +44,15 @@ Return ONLY valid JSON, no other text:
   ]
 }`;
     try {
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4o',
+        const response = await groq.chat.completions.create({
+            model: 'llama-3.2-11b-vision-preview',
             max_tokens: 1000,
             messages: [{
                     role: 'user',
                     content: [
                         {
                             type: 'image_url',
-                            image_url: {
-                                url: `data:image/jpeg;base64,${imageBase64}`,
-                                detail: 'high',
-                            },
+                            image_url: { url: `data:image/jpeg;base64,${imageBase64}` },
                         },
                         { type: 'text', text: prompt },
                     ],
@@ -88,20 +86,19 @@ Return ONLY valid JSON, no other text:
     }
 }
 async function generateGoalNote(macros, goalType) {
-    const prompt = `You are a supportive wellness coach. Write ONE short encouraging sentence (max 20 words) about how this meal relates to the user's goal.
+    const prompt = `You are a supportive wellness coach. Write ONE short encouraging sentence (max 20 words) about how this meal relates to the user goal.
 
 Meal: ${macros.calories} calories, ${macros.protein}g protein, ${macros.carbs}g carbs, ${macros.fat}g fat
 Goal: ${goalType}
 
 Rules:
 - Positive and supportive tone
-- No medical claims or disease references  
+- No medical claims or disease references
 - No words: healthy/unhealthy, diagnose, treat, cure, disease
-- General wellness framing only
 - Return only the sentence, nothing else`;
     try {
-        const res = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+        const res = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
             max_tokens: 50,
             messages: [{ role: 'user', content: prompt }],
         });
@@ -119,12 +116,9 @@ async function analyzeIngredientLabel(imageBase64, goalType) {
 Extract:
 1. Product name
 2. Nutrition per 100g: calories, protein, carbs, fat, sugar, sodium, fiber
-3. Goal alignment: "good", "moderate", or "limit" based on these rules:
-   - fat_loss goal: limit if high sugar (>15g) or high fat (>20g) or highly processed
-   - muscle_gain goal: good if high protein (>15g)
-   - wellness: moderate for most processed foods
-4. Wellness flags (use ONLY these types): high_sugar, high_sodium, highly_processed, high_protein, good_fiber
-5. For each flag provide a wellness explanation (NO medical claims, NO disease references)
+3. Goal alignment: "good", "moderate", or "limit"
+4. Wellness flags (ONLY these types): high_sugar, high_sodium, highly_processed, high_protein, good_fiber
+5. For each flag provide a wellness explanation (NO medical claims)
 6. Alternative suggestion if alignment is "limit"
 
 User goal: ${goalType}
@@ -139,13 +133,13 @@ Return ONLY valid JSON:
   "disclaimer": "This is general wellness information only. Not medical advice."
 }`;
     try {
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4o',
+        const response = await groq.chat.completions.create({
+            model: 'llama-3.2-11b-vision-preview',
             max_tokens: 800,
             messages: [{
                     role: 'user',
                     content: [
-                        { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}`, detail: 'high' } },
+                        { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
                         { type: 'text', text: prompt },
                     ],
                 }],
@@ -163,5 +157,100 @@ Return ONLY valid JSON:
             flags: [],
             disclaimer: 'Could not analyze this item. Please try again.',
         };
+    }
+}
+async function generateWeeklySummary(weekData) {
+    const prompt = `You are a warm wellness coach. Write a brief weekly summary.
+
+Data:
+- Goal: ${weekData.goal}
+- Average daily calories: ${weekData.avgCalories} kcal
+- Average daily protein: ${weekData.avgProtein}g
+- Workouts completed: ${weekData.workoutCount}
+- Consistency score: ${weekData.consistencyPct}%
+
+Return ONLY valid JSON:
+{
+  "message": "2-3 sentence personal coach message",
+  "wins": ["win 1", "win 2"],
+  "areasToImprove": ["area 1"],
+  "nextFocus": "one thing to focus on next week"
+}
+
+Rules:
+- Warm supportive tone
+- No medical claims
+- No words: healthy/unhealthy, diagnose, treat, cure, disease`;
+    try {
+        const res = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            max_tokens: 400,
+            messages: [{ role: 'user', content: prompt }],
+        });
+        const text = res.choices[0]?.message?.content ?? '{}';
+        const filtered = (0, safetyFilter_1.safetyFilter)(text);
+        return JSON.parse(filtered.safeText.replace(/```json|```/g, '').trim());
+    }
+    catch {
+        return {
+            message: 'Great week! Keep building on your consistency.',
+            wins: ['Logged meals consistently'],
+            areasToImprove: ['Try to hit your protein target daily'],
+            nextFocus: 'Consistency with daily logging',
+        };
+    }
+}
+async function generateMealPlan(goal, preferences) {
+    const africanNote = preferences.africanFoodsMode
+        ? 'Include African dishes like jollof rice, egusi, fufu, ugali, plantain, suya, moi moi, banku, waakye, injera, nyama choma where appropriate.'
+        : '';
+    const prompt = `You are a wellness nutrition planner. Create a 7-day meal plan.
+
+Goal: ${goal}
+Allergies: ${preferences.allergies.join(', ') || 'none'}
+Dietary: ${preferences.dietaryFlags.join(', ') || 'none'}
+${africanNote}
+
+Return ONLY valid JSON:
+{
+  "disclaimer": "General wellness suggestions only. Not medical advice.",
+  "plan": [
+    {
+      "day": 1,
+      "meals": {
+        "breakfast": { "name": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 },
+        "lunch": { "name": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 },
+        "dinner": { "name": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 },
+        "snack": { "name": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 }
+      }
+    }
+  ]
+}`;
+    try {
+        const res = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            max_tokens: 3000,
+            messages: [{ role: 'user', content: prompt }],
+        });
+        const text = res.choices[0]?.message?.content ?? '{}';
+        return JSON.parse(text.replace(/```json|```/g, '').trim());
+    }
+    catch {
+        return { error: 'Could not generate meal plan. Please try again.' };
+    }
+}
+async function transcribeVoice(audioBase64) {
+    try {
+        const audioBuffer = Buffer.from(audioBase64, 'base64');
+        const transcription = await groq.audio.transcriptions.create({
+            file: new File([audioBuffer], 'audio.m4a', { type: 'audio/m4a' }),
+            model: 'whisper-large-v3',
+            language: 'en',
+        });
+        return transcription.text;
+    }
+    catch (err) {
+        console.error('Voice transcription error:', err);
+        return '';
     }
 }
