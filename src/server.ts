@@ -15,6 +15,8 @@ import { herbalRouter } from './routes/herbal';
 import { privacyRouter } from './routes/privacy';
 import { oauthRouter } from './routes/oauth';
 import { foodRouter } from './routes/food';
+import { foodScanRouter } from './routes/food-scan';
+import { ingredientScanRouter } from './routes/ingredient-scan';
 import { errorMiddleware } from './middleware/error';
 
 const app = express();
@@ -43,6 +45,8 @@ app.use('/v1/herbal', herbalRouter);
 app.use('/v1/privacy', privacyRouter);
 app.use('/v1/auth/oauth', oauthRouter);
 app.use('/v1/food', foodRouter);
+app.use('/v1/food-scan', foodScanRouter);
+app.use('/v1/ingredient-scan', ingredientScanRouter);
 
 app.use(errorMiddleware);
 
