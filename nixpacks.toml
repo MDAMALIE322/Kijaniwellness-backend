@@ -1,5 +1,8 @@
+[phases.install]
+cmds = ["npm ci"]
+
 [phases.build]
-cmds = ["npm run build", "npx prisma generate"]
+cmds = ["npx tsc -p tsconfig.json", "npx prisma generate"]
 
 [start]
 cmd = "npx prisma migrate deploy && node dist/server.js"
