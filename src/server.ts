@@ -19,6 +19,7 @@ import { voiceRouter } from './routes/voice';
 import { legalRouter } from './routes/legal';
 import { mealPlanRouter } from './routes/meal-plan';
 import { habitsRouter } from './routes/habits';
+import { exerciseRouter } from './routes/exercises';
 import { foodScanRouter } from './routes/food-scan';
 import { ingredientScanRouter } from './routes/ingredient-scan';
 import { errorMiddleware } from './middleware/error';
@@ -54,6 +55,7 @@ app.use('/', legalRouter);
 app.use(express.static('static'));
 app.use('/v1/meal-plan', mealPlanRouter);
 app.use('/v1/habits', habitsRouter);
+app.use('/v1/exercises', exerciseRouter);
 app.use('/v1/food-scan', foodScanRouter);
 app.use('/v1/ingredient-scan', ingredientScanRouter);
 

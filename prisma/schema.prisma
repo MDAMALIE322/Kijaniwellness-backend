@@ -152,3 +152,21 @@ model FoodDatabase {
   @@index([name])
   @@index([isAfrican])
 }
+
+model ExerciseLibrary {
+  id               String   @id @default(cuid())
+  name             String
+  bodyPart         String?
+  equipment        String?
+  difficulty       String?
+  goalTags         String[]
+  instructions     String?
+  primaryMuscles   String[]
+  secondaryMuscles String[]
+  imageUrls        String[]
+  isCultural       Boolean  @default(false)
+  cultureName      String?
+
+  @@index([bodyPart, difficulty])
+  @@index([isCultural])
+}
