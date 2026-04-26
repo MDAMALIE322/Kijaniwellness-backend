@@ -13,6 +13,7 @@ import { workoutsRouter } from './routes/workouts';
 import { fastingRouter } from './routes/fasting';
 import { herbalRouter } from './routes/herbal';
 import { privacyRouter } from './routes/privacy';
+import { oauthRouter } from './routes/oauth';
 import { errorMiddleware } from './middleware/error';
 
 const app = express();
@@ -39,6 +40,7 @@ app.use('/v1/workouts', workoutsRouter);
 app.use('/v1/fasting', fastingRouter);
 app.use('/v1/herbal', herbalRouter);
 app.use('/v1/privacy', privacyRouter);
+app.use('/v1/auth/oauth', oauthRouter);
 
 app.use(errorMiddleware);
 
