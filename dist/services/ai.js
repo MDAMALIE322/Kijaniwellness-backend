@@ -129,26 +129,59 @@ Rules:
     }
 }
 async function analyzeIngredientLabel(imageBase64, goalType) {
-    const prompt = `You are a food label wellness analyst. Analyze this food product label or ingredient image.
-
-Extract:
-1. Product name
-2. Nutrition per 100g: calories, protein, carbs, fat, sugar, sodium, fiber
-3. Goal alignment: "good", "moderate", or "limit"
-4. Wellness flags (ONLY these types): high_sugar, high_sodium, highly_processed, high_protein, good_fiber
-5. For each flag provide a wellness explanation (NO medical claims)
-6. Alternative suggestion if alignment is "limit"
+    const prompt = `You are Kijani Coach — a knowledgeable wellness analyst specializing in food label analysis. Analyze this food product label or ingredient list image.
 
 User goal: ${goalType}
 
-You MUST respond with ONLY a valid JSON object. No explanations, no text before or after. ONLY JSON:
+Your job:
+1. Identify the product name
+2. Extract nutrition per 100g (estimate if not clearly visible)
+3. Analyze every ingredient listed and explain what it is and what it does in the body
+4. Identify wellness concerns and benefits
+5. Give a goal alignment verdict
+6. Give a Kijani Coach insight — practical, honest, encouraging
+
+INGREDIENT ANALYSIS RULES:
+- For each notable ingredient, explain: what it is, what it does, and whether it is beneficial or a concern
+- Examples of what to flag:
+  * High fructose corn syrup → "A highly processed sweetener. Consuming it frequently may contribute to excess calorie intake and blood sugar spikes."
+  * Palm oil → "A saturated fat source. Fine in moderation but limit if reducing saturated fat intake."
+  * Sodium benzoate → "A preservative used to extend shelf life. Generally recognized as safe in small amounts."
+  * Whey protein → "A complete protein source derived from milk. Excellent for muscle recovery and growth."
+  * Maltodextrin → "A processed carbohydrate with a high glycaemic index. Can cause rapid blood sugar spikes."
+  * Aspartame → "An artificial sweetener with zero calories. Some people prefer to avoid artificial sweeteners."
+  * Whole oats → "A whole grain high in beta-glucan fibre. Supports satiety and digestive health."
+  * Potassium chloride → "A salt substitute used to reduce sodium content. Generally well tolerated."
+
+WELLNESS FLAGS (use relevant ones):
+- high_sugar: sugar > 15g per 100g
+- high_sodium: sodium > 600mg per 100g  
+- highly_processed: contains artificial colours, preservatives, or more than 5 additives
+- high_protein: protein > 15g per 100g
+- good_fiber: fiber > 5g per 100g
+- high_saturated_fat: saturated fat > 5g per 100g
+- artificial_sweeteners: contains aspartame, sucralose, acesulfame-K, saccharin
+- whole_food: minimal processing, recognizable ingredients
+- good_for_goal: specifically aligns well with stated user goal
+
+GOAL ALIGNMENT:
+- good: clearly supports the user goal
+- moderate: acceptable occasionally, has some concerns
+- limit: conflicts with user goal or has significant wellness concerns
+
+You MUST respond with ONLY valid JSON. No text before or after:
 {
   "productName": "string",
   "macros": { "cal": 0, "protein": 0, "carbs": 0, "fat": 0, "sugar": 0, "sodium": 0, "fiber": 0 },
   "goalAlignment": "good|moderate|limit",
+  "goalAlignmentReason": "one sentence explaining why",
+  "ingredientInsights": [
+    { "ingredient": "ingredient name", "explanation": "what it is and what it does", "concern": true or false }
+  ],
   "flags": [{ "type": "string", "label": "string", "explanation": "string" }],
-  "alternative": "string or null",
-  "disclaimer": "This is general wellness information only. Not medical advice."
+  "coachInsight": "2-3 sentence Kijani Coach message about this product — practical, honest, encouraging",
+  "alternative": "suggest a better alternative product or food if alignment is limit or moderate",
+  "disclaimer": "This is general wellness information only. Not medical advice. Individual responses to foods vary. Consult a registered dietitian for personalised nutrition guidance."
 }`;
     try {
         const response = await groq.chat.completions.create({
