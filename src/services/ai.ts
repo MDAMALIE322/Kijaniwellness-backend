@@ -296,11 +296,14 @@ Rules:
 
 export async function generateMealPlan(
   goal: string,
-  preferences: { allergies: string[]; dietaryFlags: string[]; africanFoodsMode: boolean }
+  preferences: { allergies: string[]; dietaryFlags: string[]; africanFoodsMode: boolean; diet?: string; cuisines?: string[]; nutrition?: string; }
 ): Promise<object> {
   const africanNote = preferences.africanFoodsMode
-    ? 'Include African dishes like jollof rice, egusi, fufu, ugali, plantain, suya, moi moi, banku, waakye, injera, nyama choma where appropriate.'
-    : '';
+    ? "Include African dishes like jollof rice, egusi, fufu, ugali, plantain, suya, moi moi, banku, waakye, injera, nyama choma where appropriate."
+    : "";
+  const diet = preferences.diet ?? "Omnivore";
+  const cuisines = (preferences.cuisines ?? ["African"]).join(", ");
+  const nutrition = preferences.nutrition ?? "Balanced";
 
   const prompt = `You are a wellness nutrition planner. Create a 7-day meal plan.
 
@@ -518,5 +521,40 @@ End with 1 relevant emoji only.`;
     return res.choices[0]?.message?.content?.trim() ?? "Keep going — consistency is the key to your goals. 💪";
   } catch {
     return "Keep going — every logged meal and workout brings you closer to your goal. 🌿";
+  }
+}
+
+export async function generateSingleMeal(
+  mealType: string,
+  goalType: string,
+  preferences: { diet?: string; cuisines?: string[]; nutrition?: string; allergies?: string[] }
+): Promise<{ name: string; portion: string; calories: number; protein: number; carbs: number; fat: number }> {
+  const diet = preferences.diet ?? "Omnivore";
+  const cuisines = (preferences.cuisines ?? ["African"]).join(", ");
+  const nutrition = preferences.nutrition ?? "Balanced";
+
+  const prompt = `You are a nutritionist. Suggest ONE ${mealType} meal.
+Diet: ${diet}
+Cuisine: ${cuisines}
+Nutrition focus: ${nutrition}
+Goal: ${goalType}
+Allergies: ${(preferences.allergies ?? []).join(", ") || "none"}
+
+Return ONLY valid JSON:
+{ "name": "meal name", "portion": "portion sizes e.g. 1 cup rice, 150g chicken", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 }`;
+
+  try {
+    const res = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      max_tokens: 200,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.8,
+    });
+    const text = res.choices[0]?.message?.content ?? "{}";
+    const clean = text.replace(/\`\`\`json|\`\`\`/g, "").trim();
+    const jsonMatch = clean.match(/\{[\s\S]*\}/);
+    return jsonMatch ? JSON.parse(jsonMatch[0]) : { name: "Grilled chicken with rice", portion: "150g chicken, 1 cup rice", calories: 480, protein: 36, carbs: 52, fat: 10 };
+  } catch {
+    return { name: "Grilled chicken with rice", portion: "150g chicken, 1 cup rice", calories: 480, protein: 36, carbs: 52, fat: 10 };
   }
 }
