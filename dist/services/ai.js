@@ -273,10 +273,25 @@ async function generateMealPlan(goal, preferences) {
     const nutrition = preferences.nutrition ?? "Balanced";
     const prompt = `You are a wellness nutrition planner. Create a 7-day meal plan.
 
-Goal: ${goal}
-Allergies: ${preferences.allergies.join(', ') || 'none'}
-Dietary: ${preferences.dietaryFlags.join(', ') || 'none'}
+STRICTLY follow these requirements:
+- Goal: ${goal}
+- Diet type: ${diet}
+  * Vegan = absolutely NO meat, NO fish, NO dairy, NO eggs
+  * Pescatarian = fish and seafood allowed, NO red meat, NO poultry
+  * Omnivore = all foods allowed
+- Cuisine preference: ${cuisines}
+  * African = prioritize jollof rice, egusi, fufu, plantain, suya, moi moi, banku, waakye, injera, nyama choma, akara, pepper soup, groundnut soup
+  * Latin = prioritize rice and beans, grilled fish, tortillas, empanadas, ceviche, tamales
+  * Global = mixed international meals
+- Nutrition focus: ${nutrition}
+  * High Protein = every meal must have 30g+ protein, prioritize chicken, fish, eggs, legumes, tofu
+  * Low Carb = keep carbs under 100g per day total, avoid rice, bread, pasta, potatoes
+  * Balanced = standard macro balance
+- Allergies: ${preferences.allergies.join(", ") || "none"}
+- Dietary restrictions: ${preferences.dietaryFlags.join(", ") || "none"}
 ${africanNote}
+
+IMPORTANT: Include portion sizes for each meal (e.g. "1 cup jollof rice, 150g grilled chicken").
 
 You MUST respond with ONLY a valid JSON object. No explanations, no text before or after. ONLY JSON:
 {
@@ -285,10 +300,10 @@ You MUST respond with ONLY a valid JSON object. No explanations, no text before 
     {
       "day": 1,
       "meals": {
-        "breakfast": { "name": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 },
-        "lunch": { "name": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 },
-        "dinner": { "name": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 },
-        "snack": { "name": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 }
+        "breakfast": { "name": "meal name with portion", "portion": "e.g. 1 cup oats, 1 banana", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 },
+        "lunch": { "name": "meal name with portion", "portion": "e.g. 1 cup rice, 150g chicken", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 },
+        "dinner": { "name": "meal name with portion", "portion": "e.g. 200g fish, 1 cup vegetables", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 },
+        "snack": { "name": "meal name with portion", "portion": "e.g. 30g nuts, 1 apple", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 }
       }
     }
   ]
