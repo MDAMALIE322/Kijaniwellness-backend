@@ -108,14 +108,41 @@ mealsRouter.get('/daily-stats', authMiddleware, async (req: AuthRequest, res: Re
     else if (caloriesConsumed > caloriesGoal * 0.9) nudge = 'Almost at your daily goal — great consistency!';
     else if (streakDays >= 3) nudge = `${streakDays}-day streak! Keep it going!`;
 
+    const totalCarbs = Math.round(meals.reduce((s, m) => s + (m.totalCarbs ?? 0), 0));
+    const totalFat = Math.round(meals.reduce((s, m) => s + (m.totalFat ?? 0), 0));
+
+    // Workouts today
+    const workoutsToday = await prisma.workoutSession.count({
+      where: { userId: req.userId!, createdAt: { gte: start, lte: end } },
+    });
+
+    // Consistency
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recentMeals = await prisma.mealLog.findMany({
+      where: { userId: req.userId!, loggedAt: { gte: thirtyDaysAgo } },
+      select: { loggedAt: true },
+    });
+    const uniqueDays = new Set(recentMeals.map(m => new Date(m.loggedAt).toDateString()));
+    const consistencyPct = Math.round((uniqueDays.size / 30) * 100);
+
     return res.json({
-      caloriesConsumed,
+      // New field names
+      totalCal: caloriesConsumed,
+      totalProtein: protein,
+      totalCarbs,
+      totalFat,
       caloriesGoal,
-      protein,
-      carbs: Math.round(meals.reduce((s, m) => s + (m.totalCarbs ?? 0), 0)),
-      fat: Math.round(meals.reduce((s, m) => s + (m.totalFat ?? 0), 0)),
-      streakDays,
+      streak: streakDays,
+      workoutsToday,
+      consistencyPct,
       nudge,
+      // Legacy field names for compatibility
+      caloriesConsumed,
+      protein,
+      carbs: totalCarbs,
+      fat: totalFat,
+      streakDays,
     });
   } catch {
     return res.status(500).json({ error: 'Could not load stats.' });
