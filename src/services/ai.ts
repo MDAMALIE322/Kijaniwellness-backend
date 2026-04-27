@@ -440,3 +440,50 @@ You MUST respond with ONLY valid JSON:
     };
   }
 }
+
+interface CoachContext {
+  todayCal: number;
+  todayProtein: number;
+  goalCal: number;
+  goalProtein: number;
+  goalType: string;
+  workouts: number;
+  consistency: number;
+  streak: number;
+}
+
+export async function generateCoachInsight(ctx: CoachContext): Promise<string> {
+  const calPct = Math.round((ctx.todayCal / ctx.goalCal) * 100);
+  const proteinPct = Math.round((ctx.todayProtein / ctx.goalProtein) * 100);
+  const goalLabel = ctx.goalType === "muscle_gain" ? "build muscle" : ctx.goalType === "fat_loss" ? "lose fat" : "improve wellness";
+
+  const prompt = `You are Kijani Coach — a warm, motivating, and practical AI wellness coach.
+
+User stats right now:
+- Goal: ${goalLabel}
+- Today's calories: ${ctx.todayCal} / ${ctx.goalCal} kcal (${calPct}%)
+- Today's protein: ${ctx.todayProtein}g / ${ctx.goalProtein}g (${proteinPct}%)
+- Workouts today: ${ctx.workouts}
+- Day streak: ${ctx.streak} days
+- 30-day consistency: ${ctx.consistency}%
+
+Write a SHORT (2-3 sentences max) personalized coaching message.
+Be specific about their numbers. Be encouraging but honest.
+If they haven't logged anything today, motivate them to start.
+If they're doing well, celebrate and give a specific tip.
+If they're close to a goal, push them to finish strong.
+Do not use asterisks or markdown. Just plain motivating text.
+End with 1 relevant emoji only.`;
+
+  try {
+    const res = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      max_tokens: 150,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+    });
+    return res.choices[0]?.message?.content?.trim() ?? "Keep going — consistency is the key to your goals. 💪";
+  } catch {
+    return "Keep going — every logged meal and workout brings you closer to your goal. 🌿";
+  }
+}
