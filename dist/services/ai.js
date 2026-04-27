@@ -8,6 +8,7 @@ exports.analyzeIngredientLabel = analyzeIngredientLabel;
 exports.generateWeeklySummary = generateWeeklySummary;
 exports.generateMealPlan = generateMealPlan;
 exports.transcribeVoice = transcribeVoice;
+exports.parseVoiceMeal = parseVoiceMeal;
 const groq_sdk_1 = __importDefault(require("groq-sdk"));
 const safetyFilter_1 = require("../utils/safetyFilter");
 const groq = new groq_sdk_1.default({ apiKey: process.env.GROQ_API_KEY });
@@ -280,5 +281,108 @@ async function transcribeVoice(audioBase64) {
     catch (err) {
         console.error('Voice transcription error:', err);
         return '';
+    }
+}
+async function parseVoiceMeal(transcript) {
+    const prompt = `You are a nutrition assistant helping log meals from voice input.
+
+Extract all food items from this voice note: "${transcript}"
+
+PORTION GUIDE - use these if user does not specify:
+- Rice (jollof, white, brown, fried): 1 cup = 200g = 260 cal
+- Ugali/Sadza/Pap: 1 cup = 180g = 315 cal  
+- Fufu/Pounded Yam/Eba: 1 cup = 220g = 390 cal
+- Soup (egusi, groundnut, okra, pepper): 1 bowl = 250g = 280 cal
+- Chicken breast grilled: 1 piece = 150g = 248 cal
+- Chicken thigh: 1 piece = 130g = 272 cal
+- Fish (tilapia, mackerel): 1 fillet = 150g = 200 cal
+- Beef/Suya: 1 serving = 120g = 258 cal
+- Plantain fried: 3 pieces = 150g = 270 cal
+- Plantain boiled: 3 pieces = 150g = 183 cal
+- Beans/Lentils cooked: 1 cup = 180g = 230 cal
+- Eggs: 1 egg = 60g = 93 cal
+- Bread: 2 slices = 60g = 159 cal
+- Oats cooked: 1 bowl = 240g = 166 cal
+- Sweet potato: 1 medium = 150g = 129 cal
+- Avocado: half = 75g = 120 cal
+- Banana: 1 medium = 120g = 107 cal
+- Greek yogurt: 1 cup = 245g = 146 cal
+- Milk: 1 cup = 244g = 149 cal
+
+UNIT CONVERSIONS:
+- 1 cup = 240ml ≈ 200-250g depending on food
+- 1 tablespoon = 15g
+- 1 teaspoon = 5g
+- 1 handful = ~30g for nuts, ~50g for chips
+- 1 plate = assume 2 cups
+- 1 bowl = assume 1.5 cups
+- 1 piece/slice = use standard weight above
+- "a bit of" or "some" = assume half serving
+
+MEAL TYPE DETECTION:
+- breakfast: morning meal, oats, eggs, bread, tea
+- lunch: midday meal
+- dinner: evening meal, supper
+- snack: small amount, drink, fruit, between meals
+
+If user specifies grams or cups, use those EXACT values.
+If user says "small", reduce standard by 30%. If "large", increase by 40%.
+
+You MUST respond with ONLY valid JSON:
+{
+  "mealType": "breakfast|lunch|dinner|snack",
+  "items": [
+    {
+      "foodName": "exact food name",
+      "portionDescription": "human readable e.g. 1 cup (200g) or 150g",
+      "portionGrams": number,
+      "calories": number,
+      "protein": number,
+      "carbs": number,
+      "fat": number,
+      "confidence": "exact or estimated"
+    }
+  ]
+}`;
+    try {
+        const res = await groq.chat.completions.create({
+            model: "llama-3.3-70b-versatile",
+            max_tokens: 1000,
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.1,
+        });
+        const text = res.choices[0]?.message?.content ?? "{}";
+        const clean = text.replace(/\`\`\`json|\`\`\`/g, "").trim();
+        let parsed = { mealType: "snack", items: [] };
+        try {
+            const jsonMatch = clean.match(/\{[\s\S]*\}/);
+            if (jsonMatch)
+                parsed = JSON.parse(jsonMatch[0]);
+        }
+        catch {
+            console.error("Voice meal parse JSON error:", clean.substring(0, 100));
+        }
+        const items = parsed.items ?? [];
+        const totalMacros = {
+            calories: Math.round(items.reduce((s, i) => s + i.calories, 0)),
+            protein: Math.round(items.reduce((s, i) => s + i.protein, 0)),
+            carbs: Math.round(items.reduce((s, i) => s + i.carbs, 0)),
+            fat: Math.round(items.reduce((s, i) => s + i.fat, 0)),
+        };
+        return {
+            items,
+            mealType: parsed.mealType ?? "snack",
+            totalMacros,
+            disclaimer: "Nutritional values are estimates. Portion sizes affect actual calories.",
+        };
+    }
+    catch (err) {
+        console.error("Voice meal parse error:", err);
+        return {
+            items: [],
+            mealType: "snack",
+            totalMacros: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+            disclaimer: "Could not parse meal. Please try again.",
+        };
     }
 }

@@ -7,7 +7,9 @@ exports.voiceRouter = void 0;
 const express_1 = require("express");
 const multer_1 = __importDefault(require("multer"));
 const auth_1 = require("../middleware/auth");
+const db_1 = require("../db");
 const groq_sdk_1 = __importDefault(require("groq-sdk"));
+const ai_1 = require("../services/ai");
 exports.voiceRouter = (0, express_1.Router)();
 const upload = (0, multer_1.default)({ storage: multer_1.default.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 const groq = new groq_sdk_1.default({ apiKey: process.env.GROQ_API_KEY });
@@ -23,10 +25,51 @@ exports.voiceRouter.post("/transcribe", auth_1.authMiddleware, upload.single("au
             model: "whisper-large-v3",
             language: "en",
         });
-        return res.json({ transcript: transcription.text });
+        const transcript = transcription.text;
+        // Parse meal from transcript
+        const mealData = await (0, ai_1.parseVoiceMeal)(transcript);
+        return res.json({
+            transcript,
+            mealData,
+        });
     }
     catch (err) {
         console.error("Voice transcription error:", err);
         return res.status(500).json({ error: "Could not transcribe audio. Please try again." });
+    }
+});
+exports.voiceRouter.post("/log", auth_1.authMiddleware, async (req, res) => {
+    const { transcript, items, mealType, totalMacros } = req.body;
+    try {
+        const meal = await db_1.prisma.mealLog.create({
+            data: {
+                userId: req.userId,
+                mealType: mealType ?? "snack",
+                totalCal: totalMacros?.calories ?? 0,
+                totalProtein: totalMacros?.protein ?? 0,
+                totalCarbs: totalMacros?.carbs ?? 0,
+                totalFat: totalMacros?.fat ?? 0,
+                source: "voice",
+                notes: transcript,
+                loggedAt: new Date(),
+                items: {
+                    create: (items ?? []).map((item) => ({
+                        foodName: item.foodName,
+                        portionGrams: item.portionGrams,
+                        calories: item.calories,
+                        protein: item.protein,
+                        carbs: item.carbs,
+                        fat: item.fat,
+                        confidence: item.confidence === "exact" ? 1.0 : 0.7,
+                    })),
+                },
+            },
+            include: { items: true },
+        });
+        return res.status(201).json({ mealLog: meal });
+    }
+    catch (err) {
+        console.error("Voice log error:", err);
+        return res.status(500).json({ error: "Could not save meal." });
     }
 });
