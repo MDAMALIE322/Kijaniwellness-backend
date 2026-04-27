@@ -117,7 +117,7 @@ exports.mealsRouter.get('/daily-stats', auth_1.authMiddleware, async (req, res) 
         const totalFat = Math.round(meals.reduce((s, m) => s + (m.totalFat ?? 0), 0));
         // Workouts today
         const workoutsToday = await db_1.prisma.workoutSession.count({
-            where: { userId: req.userId, createdAt: { gte: start, lte: end } },
+            where: { userId: req.userId, startedAt: { gte: start, lte: end } },
         });
         // Consistency
         const thirtyDaysAgo = new Date();

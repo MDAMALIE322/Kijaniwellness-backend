@@ -113,7 +113,7 @@ mealsRouter.get('/daily-stats', authMiddleware, async (req: AuthRequest, res: Re
 
     // Workouts today
     const workoutsToday = await prisma.workoutSession.count({
-      where: { userId: req.userId!, createdAt: { gte: start, lte: end } },
+      where: { userId: req.userId!, startedAt: { gte: start, lte: end } },
     });
 
     // Consistency
