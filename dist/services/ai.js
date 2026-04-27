@@ -28,7 +28,7 @@ For each food item visible:
 Rules:
 - Be specific with food names
 - No medical claims or disease references
-- Return ONLY valid JSON, no other text:
+- You MUST respond with ONLY a valid JSON object. No explanations, no text before or after. ONLY JSON:
 
 {
   "items": [
@@ -60,7 +60,23 @@ Rules:
         });
         const text = response.choices[0]?.message?.content ?? '{"items":[]}';
         const clean = text.replace(/```json|```/g, '').trim();
-        const parsed = JSON.parse(clean);
+        let parsed = { items: [] };
+        try {
+            // Find JSON in response even if surrounded by text
+            const jsonMatch = clean.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                parsed = JSON.parse(jsonMatch[0]);
+            }
+            else {
+                // Model returned text - no food detected
+                console.log('Vision model returned non-JSON:', clean.substring(0, 100));
+                parsed = { items: [] };
+            }
+        }
+        catch (parseErr) {
+            console.log('JSON parse failed, no food detected:', clean.substring(0, 100));
+            parsed = { items: [] };
+        }
         const items = parsed.items ?? [];
         const totalMacros = {
             calories: Math.round(items.reduce((s, i) => s + i.calories, 0)),
@@ -123,7 +139,7 @@ Extract:
 
 User goal: ${goalType}
 
-Return ONLY valid JSON:
+You MUST respond with ONLY a valid JSON object. No explanations, no text before or after. ONLY JSON:
 {
   "productName": "string",
   "macros": { "cal": 0, "protein": 0, "carbs": 0, "fat": 0, "sugar": 0, "sodium": 0, "fiber": 0 },
@@ -146,7 +162,19 @@ Return ONLY valid JSON:
         });
         const text = response.choices[0]?.message?.content ?? '{}';
         const clean = text.replace(/```json|```/g, '').trim();
-        return JSON.parse(clean);
+        try {
+            const jsonMatch = clean.match(/\{[\s\S]*\}/);
+            return jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(clean);
+        }
+        catch {
+            return {
+                productName: "Unknown",
+                macros: { cal: 0, protein: 0, carbs: 0, fat: 0, sugar: 0, sodium: 0, fiber: 0 },
+                goalAlignment: "moderate",
+                flags: [],
+                disclaimer: "Could not analyze this item. Please try again.",
+            };
+        }
     }
     catch (err) {
         console.error('Ingredient scan AI error:', err);
@@ -169,7 +197,7 @@ Data:
 - Workouts completed: ${weekData.workoutCount}
 - Consistency score: ${weekData.consistencyPct}%
 
-Return ONLY valid JSON:
+You MUST respond with ONLY a valid JSON object. No explanations, no text before or after. ONLY JSON:
 {
   "message": "2-3 sentence personal coach message",
   "wins": ["win 1", "win 2"],
@@ -211,7 +239,7 @@ Allergies: ${preferences.allergies.join(', ') || 'none'}
 Dietary: ${preferences.dietaryFlags.join(', ') || 'none'}
 ${africanNote}
 
-Return ONLY valid JSON:
+You MUST respond with ONLY a valid JSON object. No explanations, no text before or after. ONLY JSON:
 {
   "disclaimer": "General wellness suggestions only. Not medical advice.",
   "plan": [
