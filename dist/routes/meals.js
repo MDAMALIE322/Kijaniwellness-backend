@@ -73,8 +73,32 @@ exports.mealsRouter.get('/daily-stats', auth_1.authMiddleware, async (req, res) 
             where: { userId: req.userId, loggedAt: { gte: start, lte: end } },
         });
         const profile = await db_1.prisma.userProfile.findUnique({ where: { userId: req.userId } });
-        const caloriesGoal = profile?.goalType === 'fat_loss' ? 1800
-            : profile?.goalType === 'muscle_gain' ? 2800 : 2200;
+        // Calculate TDEE-based calorie goal using Mifflin-St Jeor
+        let caloriesGoal = 2200; // default
+        if (profile?.weightKg && profile?.heightCm && profile?.ageYears) {
+            const w = profile.weightKg;
+            const h = profile.heightCm;
+            const a = profile.ageYears;
+            const sex = profile.biologicalSex ?? "male";
+            const bmr = sex === "female"
+                ? 10 * w + 6.25 * h - 5 * a - 161
+                : 10 * w + 6.25 * h - 5 * a + 5;
+            const multipliers = {
+                sedentary: 1.2, light: 1.375, moderate: 1.55, very_active: 1.725, athlete: 1.9,
+            };
+            const tdee = Math.round(bmr * (multipliers[profile.activityLevel ?? "moderate"] ?? 1.55));
+            if (profile.goalType === "fat_loss")
+                caloriesGoal = Math.round(tdee - 500);
+            else if (profile.goalType === "muscle_gain")
+                caloriesGoal = Math.round(tdee + 300);
+            else
+                caloriesGoal = tdee;
+        }
+        else {
+            // Fallback if no profile data
+            caloriesGoal = profile?.goalType === "fat_loss" ? 1800
+                : profile?.goalType === "muscle_gain" ? 2800 : 2200;
+        }
         // Calculate streak
         const streakDays = await calculateStreak(req.userId);
         // Generate nudge
