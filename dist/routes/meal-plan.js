@@ -43,13 +43,19 @@ exports.mealPlanRouter.post("/generate", auth_1.authMiddleware, async (req, res)
     try {
         const profile = await db_1.prisma.userProfile.findUnique({ where: { userId: req.userId } });
         const { diet, cuisines, nutrition } = req.body;
+        // Save meal plan preferences to profile so AI remembers them
+        await db_1.prisma.userProfile.upsert({
+            where: { userId: req.userId },
+            update: { mealPlanDiet: diet, mealPlanCuisines: JSON.stringify(cuisines), mealPlanNutrition: nutrition },
+            create: { userId: req.userId, mealPlanDiet: diet, mealPlanCuisines: JSON.stringify(cuisines), mealPlanNutrition: nutrition },
+        }).catch(() => { }); // non-blocking
         const plan = await (0, ai_1.generateMealPlan)(profile?.goalType ?? "wellness", {
             allergies: profile?.allergies ?? [],
             dietaryFlags: profile?.dietaryFlags ?? [],
             africanFoodsMode: profile?.africanFoodsMode ?? true,
-            diet: diet ?? "Omnivore",
-            cuisines: cuisines ?? ["African"],
-            nutrition: nutrition ?? "Balanced",
+            diet: diet ?? profile?.mealPlanDiet ?? "Omnivore",
+            cuisines: cuisines ?? (profile?.mealPlanCuisines ? JSON.parse(profile.mealPlanCuisines) : ["African"]),
+            nutrition: nutrition ?? profile?.mealPlanNutrition ?? "Balanced",
         });
         return res.json(plan);
     }
@@ -64,9 +70,9 @@ exports.mealPlanRouter.post("/swap", auth_1.authMiddleware, async (req, res) => 
         const { mealType, day, diet, cuisines, nutrition } = req.body;
         const { generateSingleMeal } = await Promise.resolve().then(() => __importStar(require("../services/ai")));
         const meal = await generateSingleMeal(mealType, profile?.goalType ?? "wellness", {
-            diet: diet ?? "Omnivore",
-            cuisines: cuisines ?? ["African"],
-            nutrition: nutrition ?? "Balanced",
+            diet: diet ?? profile?.mealPlanDiet ?? "Omnivore",
+            cuisines: cuisines ?? (profile?.mealPlanCuisines ? JSON.parse(profile.mealPlanCuisines) : ["African"]),
+            nutrition: nutrition ?? profile?.mealPlanNutrition ?? "Balanced",
             allergies: profile?.allergies ?? [],
         });
         return res.json({ meal });

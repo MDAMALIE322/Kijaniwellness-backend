@@ -42,6 +42,9 @@ model UserProfile {
   allergies        String[]
   dietaryFlags     String[]
   africanFoodsMode Boolean  @default(true)
+  mealPlanDiet     String?
+  mealPlanCuisines String?
+  mealPlanNutrition String?
   updatedAt        DateTime @updatedAt
 }
 

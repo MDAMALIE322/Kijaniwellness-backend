@@ -10,15 +10,22 @@ mealPlanRouter.post("/generate", authMiddleware, async (req: AuthRequest, res: R
     const profile = await prisma.userProfile.findUnique({ where: { userId: req.userId! } });
     const { diet, cuisines, nutrition } = req.body;
 
+    // Save meal plan preferences to profile so AI remembers them
+    await prisma.userProfile.upsert({
+      where: { userId: req.userId! },
+      update: { mealPlanDiet: diet, mealPlanCuisines: JSON.stringify(cuisines), mealPlanNutrition: nutrition },
+      create: { userId: req.userId!, mealPlanDiet: diet, mealPlanCuisines: JSON.stringify(cuisines), mealPlanNutrition: nutrition },
+    }).catch(() => {}); // non-blocking
+
     const plan = await generateMealPlan(
       profile?.goalType ?? "wellness",
       {
         allergies: profile?.allergies ?? [],
         dietaryFlags: profile?.dietaryFlags ?? [],
         africanFoodsMode: profile?.africanFoodsMode ?? true,
-        diet: diet ?? "Omnivore",
-        cuisines: cuisines ?? ["African"],
-        nutrition: nutrition ?? "Balanced",
+        diet: diet ?? profile?.mealPlanDiet ?? "Omnivore",
+        cuisines: cuisines ?? (profile?.mealPlanCuisines ? JSON.parse(profile.mealPlanCuisines) : ["African"]),
+        nutrition: nutrition ?? profile?.mealPlanNutrition ?? "Balanced",
       }
     );
     return res.json(plan);
@@ -38,9 +45,9 @@ mealPlanRouter.post("/swap", authMiddleware, async (req: AuthRequest, res: Respo
       mealType,
       profile?.goalType ?? "wellness",
       {
-        diet: diet ?? "Omnivore",
-        cuisines: cuisines ?? ["African"],
-        nutrition: nutrition ?? "Balanced",
+        diet: diet ?? profile?.mealPlanDiet ?? "Omnivore",
+        cuisines: cuisines ?? (profile?.mealPlanCuisines ? JSON.parse(profile.mealPlanCuisines) : ["African"]),
+        nutrition: nutrition ?? profile?.mealPlanNutrition ?? "Balanced",
         allergies: profile?.allergies ?? [],
       }
     );
