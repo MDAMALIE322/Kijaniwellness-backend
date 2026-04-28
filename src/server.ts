@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { authRouter } from './routes/auth';
+import { socialAuthRouter } from './routes/social-auth';
 import { profileRouter } from './routes/profile';
 import { mealsRouter } from './routes/meals';
 import { workoutsRouter } from './routes/workouts';
@@ -42,6 +43,7 @@ app.use('/v1', limiter);
 app.get('/health', (_req, res) => res.json({ status: 'ok', app: 'kijani-api' }));
 
 app.use('/v1/auth', authRouter);
+app.use('/v1/auth', socialAuthRouter);
 app.use('/v1/profile', profileRouter);
 app.use('/v1/meals', mealsRouter);
 app.use('/v1/workouts', workoutsRouter);

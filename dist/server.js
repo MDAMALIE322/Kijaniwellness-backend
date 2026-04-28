@@ -10,6 +10,7 @@ const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 const auth_1 = require("./routes/auth");
+const social_auth_1 = require("./routes/social-auth");
 const profile_1 = require("./routes/profile");
 const meals_1 = require("./routes/meals");
 const workouts_1 = require("./routes/workouts");
@@ -40,6 +41,7 @@ const limiter = (0, express_rate_limit_1.default)({ windowMs: 15 * 60 * 1000, ma
 app.use('/v1', limiter);
 app.get('/health', (_req, res) => res.json({ status: 'ok', app: 'kijani-api' }));
 app.use('/v1/auth', auth_1.authRouter);
+app.use('/v1/auth', social_auth_1.socialAuthRouter);
 app.use('/v1/profile', profile_1.profileRouter);
 app.use('/v1/meals', meals_1.mealsRouter);
 app.use('/v1/workouts', workouts_1.workoutsRouter);
