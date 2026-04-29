@@ -45,9 +45,18 @@ mealsRouter.post('/', authMiddleware, async (req: AuthRequest, res: Response) =>
 });
 
 mealsRouter.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const date = req.query.date ? new Date(req.query.date as string) : new Date();
-  const start = new Date(date); start.setHours(0, 0, 0, 0);
-  const end = new Date(date); end.setHours(23, 59, 59, 999);
+  const tzOffset = parseInt(req.query.tz as string ?? '0') || 0; // minutes offset from UTC
+  const dateStr = req.query.date as string;
+  let start: Date, end: Date;
+  if (dateStr) {
+    // Parse date string in user's local timezone
+    const [year, month, day] = dateStr.split('-').map(Number);
+    start = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - tzOffset * 60000);
+    end = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999) - tzOffset * 60000);
+  } else {
+    start = new Date(); start.setHours(0, 0, 0, 0);
+    end = new Date(); end.setHours(23, 59, 59, 999);
+  }
 
   try {
     const meals = await prisma.mealLog.findMany({
@@ -62,9 +71,18 @@ mealsRouter.get('/', authMiddleware, async (req: AuthRequest, res: Response) => 
 });
 
 mealsRouter.get('/daily-stats', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const date = req.query.date ? new Date(req.query.date as string) : new Date();
-  const start = new Date(date); start.setHours(0, 0, 0, 0);
-  const end = new Date(date); end.setHours(23, 59, 59, 999);
+  const tzOffset = parseInt(req.query.tz as string ?? '0') || 0; // minutes offset from UTC
+  const dateStr = req.query.date as string;
+  let start: Date, end: Date;
+  if (dateStr) {
+    // Parse date string in user's local timezone
+    const [year, month, day] = dateStr.split('-').map(Number);
+    start = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - tzOffset * 60000);
+    end = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999) - tzOffset * 60000);
+  } else {
+    start = new Date(); start.setHours(0, 0, 0, 0);
+    end = new Date(); end.setHours(23, 59, 59, 999);
+  }
 
   try {
     const meals = await prisma.mealLog.findMany({
@@ -74,6 +92,9 @@ mealsRouter.get('/daily-stats', authMiddleware, async (req: AuthRequest, res: Re
 
     // Calculate TDEE-based calorie goal using Mifflin-St Jeor
     let caloriesGoal = 2200; // default
+    let goalProtein = 120;
+    let goalCarbs = 250;
+    let goalFat = 70;
     if (profile?.weightKg && profile?.heightCm && profile?.ageYears) {
       const w = profile.weightKg;
       const h = profile.heightCm;
@@ -133,6 +154,10 @@ mealsRouter.get('/daily-stats', authMiddleware, async (req: AuthRequest, res: Re
       totalCarbs,
       totalFat,
       caloriesGoal,
+      goalProtein,
+      goalCarbs,
+      goalFat,
+
       streak: streakDays,
       workoutsToday,
       consistencyPct,
