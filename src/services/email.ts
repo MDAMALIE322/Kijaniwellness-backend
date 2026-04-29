@@ -4,8 +4,11 @@ const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: "mawufemordamalie@gmail.com",
-    pass: "mhta psmf pbvz tolu",
+    pass: "mhtapsmfpbvztolu",
   },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
 });
 
 export async function sendPasswordResetEmail(toEmail: string, resetCode: string) {
