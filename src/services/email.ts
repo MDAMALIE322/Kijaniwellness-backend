@@ -1,7 +1,9 @@
-import nodemailer from "nodemailer";
+import nodemailer, { TransportOptions } from "nodemailer";
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
   auth: {
     user: "mawufemordamalie@gmail.com",
     pass: "mhtapsmfpbvztolu",
@@ -9,7 +11,7 @@ const transporter = nodemailer.createTransport({
   connectionTimeout: 10000,
   greetingTimeout: 10000,
   socketTimeout: 15000,
-});
+} as TransportOptions);
 
 export async function sendPasswordResetEmail(toEmail: string, resetCode: string) {
   await transporter.sendMail({
