@@ -143,7 +143,17 @@ Rules:
     }
 }
 async function analyzeIngredientLabel(imageBase64, goalType) {
-    const prompt = `You are Kijani Coach — a knowledgeable wellness analyst specializing in food label analysis. Analyze this food product label or ingredient list image.
+    const prompt = `You are Kijani Coach — an expert food label analyst with OCR capabilities. Your job is to carefully read and extract ALL text visible in this food product label or ingredient list image.
+
+CRITICAL INSTRUCTIONS:
+- Read every word visible in the image carefully, including small print
+- This could be a nutrition facts panel, ingredient list, or product label
+- Even if the image is at an angle or partially blurry, extract what you can
+- If you can see ANY text related to food/nutrition, analyze it
+- Do NOT return unknown/empty if there is ANY readable text in the image
+- If truly unreadable, set "cannotRead": true in your response
+
+User goal: ${goalType}
 
 User goal: ${goalType}
 
@@ -213,15 +223,28 @@ You MUST respond with ONLY valid JSON. No text before or after:
         const clean = text.replace(/```json|```/g, '').trim();
         try {
             const jsonMatch = clean.match(/\{[\s\S]*\}/);
-            return jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(clean);
+            const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(clean);
+            // If AI flagged it cannot read
+            if (parsed.cannotRead) {
+                return {
+                    productName: "Label unclear",
+                    cannotRead: true,
+                    macros: { cal: 0, protein: 0, carbs: 0, fat: 0, sugar: 0, sodium: 0, fiber: 0 },
+                    goalAlignment: "unknown",
+                    flags: [],
+                    disclaimer: "We couldn\'t read this label clearly. Try taking a closer photo in good lighting, keeping the label flat and fully visible.",
+                };
+            }
+            return parsed;
         }
         catch {
             return {
                 productName: "Unknown",
+                cannotRead: true,
                 macros: { cal: 0, protein: 0, carbs: 0, fat: 0, sugar: 0, sodium: 0, fiber: 0 },
                 goalAlignment: "moderate",
                 flags: [],
-                disclaimer: "Could not analyze this item. Please try again.",
+                disclaimer: "Could not analyze this label. Please try again with better lighting and a clearer angle.",
             };
         }
     }
