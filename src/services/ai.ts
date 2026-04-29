@@ -42,6 +42,9 @@ For each food item visible:
 Rules:
 - Be specific with food names
 - No medical claims or disease references
+- CRITICAL: If the image does NOT contain food (e.g. clothing, objects, people, scenery, text), return {"items": [], "notFood": true}
+- Only identify items you are confident are food. Do NOT guess or assume.
+- If you cannot clearly identify food, return empty items array
 - You MUST respond with ONLY a valid JSON object. No explanations, no text before or after. ONLY JSON:
 
 {
@@ -83,6 +86,16 @@ Rules:
       const jsonMatch = clean.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         parsed = JSON.parse(jsonMatch[0]);
+        // If AI detected non-food image
+        if (parsed.notFood || !parsed.items || parsed.items.length === 0) {
+          return {
+            items: [],
+            totalMacros: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+            disclaimer: parsed.notFood
+              ? 'No food detected in this image. Please scan a meal or food item.'
+              : 'Could not identify any food items. Try better lighting or a clearer angle.',
+          };
+        }
       } else {
         // Model returned text - no food detected
         console.log('Vision model returned non-JSON:', clean.substring(0, 100));
