@@ -1,21 +1,10 @@
-import nodemailer, { TransportOptions } from "nodemailer";
+import { Resend } from "resend";
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: "mawufemordamalie@gmail.com",
-    pass: "mhtapsmfpbvztolu",
-  },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 15000,
-} as TransportOptions);
+const resend = new Resend("re_7JYMnyQA_PEXTckbrVbfMP72f4bRxzEnv");
 
 export async function sendPasswordResetEmail(toEmail: string, resetCode: string) {
-  await transporter.sendMail({
-    from: '"Kijani Wellness" <mawufemordamalie@gmail.com>',
+  await resend.emails.send({
+    from: "Kijani Wellness <onboarding@resend.dev>",
     to: toEmail,
     subject: "Reset your Kijani Wellness password",
     html: `

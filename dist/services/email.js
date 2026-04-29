@@ -1,25 +1,11 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendPasswordResetEmail = sendPasswordResetEmail;
-const nodemailer_1 = __importDefault(require("nodemailer"));
-const transporter = nodemailer_1.default.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false,
-    auth: {
-        user: "mawufemordamalie@gmail.com",
-        pass: "mhtapsmfpbvztolu",
-    },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-});
+const resend_1 = require("resend");
+const resend = new resend_1.Resend("re_7JYMnyQA_PEXTckbrVbfMP72f4bRxzEnv");
 async function sendPasswordResetEmail(toEmail, resetCode) {
-    await transporter.sendMail({
-        from: '"Kijani Wellness" <mawufemordamalie@gmail.com>',
+    await resend.emails.send({
+        from: "Kijani Wellness <onboarding@resend.dev>",
         to: toEmail,
         subject: "Reset your Kijani Wellness password",
         html: `
