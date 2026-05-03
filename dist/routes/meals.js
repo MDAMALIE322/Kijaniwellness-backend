@@ -208,3 +208,130 @@ async function calculateStreak(userId) {
     }
     return streak;
 }
+// ── All-time stats ───────────────────────────────────────
+exports.mealsRouter.get('/all-time-stats', auth_1.authMiddleware, async (req, res) => {
+    try {
+        const meals = await db_1.prisma.mealLog.findMany({ where: { userId: req.userId } });
+        const workouts = await db_1.prisma.workoutSession.findMany({ where: { userId: req.userId } });
+        const user = await db_1.prisma.user.findUnique({ where: { id: req.userId } });
+        const totalCal = meals.reduce((s, m) => s + (m.totalCal ?? 0), 0);
+        const totalProtein = meals.reduce((s, m) => s + (m.totalProtein ?? 0), 0);
+        // Calculate best streak from meal logs
+        const dates = [...new Set(meals.map(m => new Date(m.loggedAt).toDateString()))].sort();
+        let bestStreak = 0, currentStreak = 0;
+        let prevDate = null;
+        for (const dateStr of dates) {
+            const date = new Date(dateStr);
+            if (prevDate && (date.getTime() - prevDate.getTime()) === 86400000) {
+                currentStreak++;
+            }
+            else {
+                currentStreak = 1;
+            }
+            bestStreak = Math.max(bestStreak, currentStreak);
+            prevDate = date;
+        }
+        return res.json({
+            totalMeals: meals.length,
+            totalCal: Math.round(totalCal),
+            totalProtein: Math.round(totalProtein),
+            totalWorkouts: workouts.length,
+            bestStreak,
+            memberSince: user?.createdAt ?? new Date(),
+        });
+    }
+    catch (err) {
+        console.error('All-time stats error:', err);
+        return res.status(500).json({ error: 'Could not load all-time stats.' });
+    }
+});
+// ── Weekly stats with offset ─────────────────────────────
+exports.mealsRouter.get('/weekly-stats', auth_1.authMiddleware, async (req, res) => {
+    try {
+        const offset = parseInt(req.query.offset ?? '0') || 0;
+        const now = new Date();
+        const dayOfWeek = now.getDay() || 7; // Sunday = 0, treat as 7
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - (dayOfWeek - 1) + (offset * 7));
+        monday.setHours(0, 0, 0, 0);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+        const meals = await db_1.prisma.mealLog.findMany({
+            where: { userId: req.userId, loggedAt: { gte: monday, lte: sunday } },
+        });
+        const days = [];
+        for (let i = 0; i < 7; i++) {
+            const day = new Date(monday);
+            day.setDate(monday.getDate() + i);
+            const dayStart = new Date(day);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(day);
+            dayEnd.setHours(23, 59, 59, 999);
+            const dayMeals = meals.filter(m => {
+                const d = new Date(m.loggedAt);
+                return d >= dayStart && d <= dayEnd;
+            });
+            days.push({
+                day: day.toLocaleDateString('en-US', { weekday: 'short' }),
+                date: day.toISOString().split('T')[0],
+                calories: Math.round(dayMeals.reduce((s, m) => s + (m.totalCal ?? 0), 0)),
+                protein: Math.round(dayMeals.reduce((s, m) => s + (m.totalProtein ?? 0), 0)),
+            });
+        }
+        return res.json({ days });
+    }
+    catch (err) {
+        console.error('Weekly stats error:', err);
+        return res.status(500).json({ error: 'Could not load weekly stats.' });
+    }
+});
+// ── Weekly summary ───────────────────────────────────────
+exports.mealsRouter.get('/weekly-summary', auth_1.authMiddleware, async (req, res) => {
+    try {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const meals = await db_1.prisma.mealLog.findMany({
+            where: { userId: req.userId, loggedAt: { gte: weekAgo } },
+        });
+        const totalCal = meals.reduce((s, m) => s + (m.totalCal ?? 0), 0);
+        const totalProtein = meals.reduce((s, m) => s + (m.totalProtein ?? 0), 0);
+        const daysLogged = new Set(meals.map(m => new Date(m.loggedAt).toDateString())).size;
+        return res.json({
+            totalCal: Math.round(totalCal),
+            totalProtein: Math.round(totalProtein),
+            daysLogged,
+            avgDailyCal: Math.round(totalCal / 7),
+        });
+    }
+    catch {
+        return res.status(500).json({ error: 'Could not load weekly summary.' });
+    }
+});
+// ── Progress coach insight (AI) ──────────────────────────
+exports.mealsRouter.get('/progress-coach', auth_1.authMiddleware, async (req, res) => {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const meals = await db_1.prisma.mealLog.findMany({
+            where: { userId: req.userId, loggedAt: { gte: today } },
+        });
+        const totalCal = meals.reduce((s, m) => s + (m.totalCal ?? 0), 0);
+        const totalProtein = meals.reduce((s, m) => s + (m.totalProtein ?? 0), 0);
+        const profile = await db_1.prisma.userProfile.findUnique({ where: { userId: req.userId } });
+        let insight = "Keep going! Every logged meal is a step toward your goal.";
+        if (totalProtein < 50 && totalCal > 0) {
+            insight = "Your protein is on the lower side today. Consider adding lean protein at your next meal.";
+        }
+        else if (totalCal === 0) {
+            insight = "Log your first meal of the day to track your nutrition.";
+        }
+        else if (profile?.goalType === "muscle_gain" && totalProtein > 100) {
+            insight = "Great protein intake today! You're fueling your muscle gain goals.";
+        }
+        return res.json({ insight });
+    }
+    catch {
+        return res.json({ insight: "Stay consistent with your logging — small wins add up." });
+    }
+});
