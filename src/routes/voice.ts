@@ -73,3 +73,16 @@ voiceRouter.post("/log", authMiddleware, async (req: AuthRequest, res: Response)
     return res.status(500).json({ error: "Could not save meal." });
   }
 });
+
+voiceRouter.post('/describe', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const { description } = req.body;
+  if (!description?.trim()) return res.status(400).json({ error: 'Please describe what you ate.' });
+  try {
+    const { parseVoiceMeal } = await import('../services/ai');
+    const result = await parseVoiceMeal(description.trim());
+    return res.json(result);
+  } catch (err) {
+    console.error('Describe meal error:', err);
+    return res.status(500).json({ error: 'Could not analyze your meal. Please try again.' });
+  }
+});
