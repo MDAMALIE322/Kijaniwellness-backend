@@ -17,15 +17,26 @@ exports.privacyRouter.post('/data-export/request', auth_1.authMiddleware, async 
     }
 });
 exports.privacyRouter.post('/delete-account', auth_1.authMiddleware, async (req, res) => {
+    const userId = req.userId;
     try {
-        await db_1.prisma.user.update({
-            where: { id: req.userId },
-            data: { deletedAt: new Date() },
+        await db_1.prisma.$transaction(async (tx) => {
+            // Wipe child records first (FK dependencies)
+            await tx.mealItem.deleteMany({ where: { mealLog: { userId } } });
+            await tx.mealLog.deleteMany({ where: { userId } });
+            await tx.workoutSession.deleteMany({ where: { userId } });
+            await tx.fastingLog.deleteMany({ where: { userId } });
+            await tx.herbalLog.deleteMany({ where: { userId } });
+            await tx.privacyConsent.deleteMany({ where: { userId } });
+            await tx.dataExportRequest.deleteMany({ where: { userId } });
+            await tx.userProfile.deleteMany({ where: { userId } });
+            // Finally remove the user
+            await tx.user.delete({ where: { id: userId } });
         });
-        return res.json({ scheduled: true, message: 'Account deletion scheduled. All data will be removed within 30 days.' });
+        return res.json({ deleted: true, message: 'Account and all associated data have been permanently deleted.' });
     }
-    catch {
-        return res.status(500).json({ error: 'Could not process deletion.' });
+    catch (err) {
+        console.error('[delete-account] failed:', err);
+        return res.status(500).json({ error: 'Could not delete account. Please try again or contact support.' });
     }
 });
 exports.privacyRouter.post('/consent', auth_1.authMiddleware, async (req, res) => {
