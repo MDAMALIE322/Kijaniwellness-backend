@@ -31,7 +31,12 @@ mealsRouter.post('/', authMiddleware, async (req: AuthRequest, res: Response) =>
             protein: item.protein,
             carbs: item.carbs,
             fat: item.fat,
-            confidence: item.confidence,
+            confidence: typeof item.confidence === 'number'
+              ? item.confidence
+              : item.confidence === 'exact' ? 1.0
+              : item.confidence === 'estimated' ? 0.7
+              : item.confidence === 'low' ? 0.4
+              : null,
           })),
         },
       },
@@ -39,8 +44,8 @@ mealsRouter.post('/', authMiddleware, async (req: AuthRequest, res: Response) =>
     });
     return res.status(201).json({ mealLog: meal });
   } catch (err) {
-    console.error('[meals POST] failed:', err, 'body:', JSON.stringify(req.body));
-    return res.status(500).json({ error: 'Could not save meal.', detail: String(err) });
+    console.error('[meals POST] failed:', err);
+    return res.status(500).json({ error: 'Could not save meal.' });
   }
 });
 
