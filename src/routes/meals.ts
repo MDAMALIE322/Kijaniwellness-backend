@@ -39,8 +39,8 @@ mealsRouter.post('/', authMiddleware, async (req: AuthRequest, res: Response) =>
     });
     return res.status(201).json({ mealLog: meal });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Could not save meal.' });
+    console.error('[meals POST] failed:', err, 'body:', JSON.stringify(req.body));
+    return res.status(500).json({ error: 'Could not save meal.', detail: String(err) });
   }
 });
 
