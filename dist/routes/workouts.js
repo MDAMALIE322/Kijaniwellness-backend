@@ -19,8 +19,9 @@ exports.workoutsRouter.post('/', auth_1.authMiddleware, async (req, res) => {
         });
         return res.status(201).json({ session });
     }
-    catch {
-        return res.status(500).json({ error: 'Could not save workout.' });
+    catch (err) {
+        console.error('[workouts POST] failed:', err, 'body:', JSON.stringify(req.body));
+        return res.status(500).json({ error: 'Could not save workout.', detail: String(err) });
     }
 });
 exports.workoutsRouter.get('/', auth_1.authMiddleware, async (req, res) => {
@@ -32,7 +33,8 @@ exports.workoutsRouter.get('/', auth_1.authMiddleware, async (req, res) => {
         });
         return res.json({ sessions });
     }
-    catch {
+    catch (err) {
+        console.error('[workouts GET] failed:', err);
         return res.status(500).json({ error: 'Could not load workouts.' });
     }
 });
