@@ -14,6 +14,28 @@ exports.generateSingleMeal = generateSingleMeal;
 const groq_sdk_1 = __importDefault(require("groq-sdk"));
 const safetyFilter_1 = require("../utils/safetyFilter");
 const groq = new groq_sdk_1.default({ apiKey: process.env.GROQ_API_KEY });
+// Retry wrapper for Groq calls - handles rate limits (429) with backoff
+async function groqChatWithRetry(params, maxRetries = 2) {
+    let lastErr;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await groq.chat.completions.create(params);
+        }
+        catch (err) {
+            lastErr = err;
+            if (err?.status === 429) {
+                // Respect Groq's retry-after header if present, else backoff
+                const retryAfter = parseFloat(err?.headers?.get?.('retry-after') ?? '3');
+                const waitMs = Math.min((retryAfter + 1) * 1000, 12000);
+                console.log(`Rate limited, retrying in ${waitMs}ms (attempt ${attempt + 1}/${maxRetries})`);
+                await new Promise(r => setTimeout(r, waitMs));
+                continue;
+            }
+            throw err; // Non-rate-limit errors fail immediately
+        }
+    }
+    throw lastErr;
+}
 async function analyzeFoodImage(imageBase64, goalType, africanMode) {
     const africanContext = africanMode
         ? 'This user eats African cuisine. Prioritize identifying African foods: jollof rice, egusi soup, fufu, ugali, plantain, suya, moi moi, banku, kenkey, waakye, groundnut soup, okra soup, injera, nyama choma, cassava, yam, pepper soup, pounded yam, eba, tuwo, kilishi, chapati, pilau, doro wat, shiro, couscous, tagine.'
@@ -50,7 +72,7 @@ Rules:
   ]
 }`;
     try {
-        const response = await groq.chat.completions.create({
+        const response = await groqChatWithRetry({
             model: 'qwen/qwen3.6-27b',
             max_tokens: 2500,
             response_format: { type: 'json_object' },
@@ -134,7 +156,7 @@ Rules:
 - No words: healthy/unhealthy, diagnose, treat, cure, disease
 - Return only the sentence, nothing else`;
     try {
-        const res = await groq.chat.completions.create({
+        const res = await groqChatWithRetry({
             model: 'llama-3.3-70b-versatile',
             max_tokens: 50,
             messages: [{ role: 'user', content: prompt }],
@@ -213,7 +235,7 @@ You MUST respond with ONLY valid JSON. No text before or after:
   "disclaimer": "This is general wellness information only. Not medical advice. Individual responses to foods vary. Consult a registered dietitian for personalised nutrition guidance."
 }`;
     try {
-        const response = await groq.chat.completions.create({
+        const response = await groqChatWithRetry({
             model: 'qwen/qwen3.6-27b',
             max_tokens: 3500,
             response_format: { type: 'json_object' },
@@ -293,7 +315,7 @@ Rules:
 - No medical claims
 - No words: healthy/unhealthy, diagnose, treat, cure, disease`;
     try {
-        const res = await groq.chat.completions.create({
+        const res = await groqChatWithRetry({
             model: 'llama-3.3-70b-versatile',
             max_tokens: 400,
             messages: [{ role: 'user', content: prompt }],
@@ -356,7 +378,7 @@ You MUST respond with ONLY a valid JSON object. No explanations, no text before 
   ]
 }`;
     try {
-        const res = await groq.chat.completions.create({
+        const res = await groqChatWithRetry({
             model: 'llama-3.3-70b-versatile',
             max_tokens: 3000,
             messages: [{ role: 'user', content: prompt }],
@@ -445,7 +467,7 @@ You MUST respond with ONLY valid JSON:
   ]
 }`;
     try {
-        const res = await groq.chat.completions.create({
+        const res = await groqChatWithRetry({
             model: "llama-3.3-70b-versatile",
             max_tokens: 1000,
             messages: [{ role: "user", content: prompt }],
@@ -508,7 +530,7 @@ If they're close to a goal, push them to finish strong.
 Do not use asterisks or markdown. Just plain motivating text.
 End with 1 relevant emoji only.`;
     try {
-        const res = await groq.chat.completions.create({
+        const res = await groqChatWithRetry({
             model: "llama-3.3-70b-versatile",
             max_tokens: 150,
             messages: [{ role: "user", content: prompt }],
@@ -534,7 +556,7 @@ Allergies: ${(preferences.allergies ?? []).join(", ") || "none"}
 Return ONLY valid JSON:
 { "name": "meal name", "portion": "portion sizes e.g. 1 cup rice, 150g chicken", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 }`;
     try {
-        const res = await groq.chat.completions.create({
+        const res = await groqChatWithRetry({
             model: "llama-3.3-70b-versatile",
             max_tokens: 200,
             messages: [{ role: "user", content: prompt }],
