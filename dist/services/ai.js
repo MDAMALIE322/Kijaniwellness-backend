@@ -224,10 +224,14 @@ You MUST respond with ONLY valid JSON. No text before or after:
                 }],
         });
         const text = response.choices[0]?.message?.content ?? '{}';
+        console.log('=== INGREDIENT SCAN RAW RESPONSE ===');
+        console.log(text);
+        console.log('=== END RAW RESPONSE ===');
         const clean = text.replace(/```json|```/g, '').trim();
         try {
             const jsonMatch = clean.match(/\{[\s\S]*\}/);
             const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(clean);
+            console.log('=== INGREDIENT PARSED ===', JSON.stringify(parsed));
             // If AI flagged it cannot read
             if (parsed.cannotRead) {
                 return {
@@ -241,7 +245,8 @@ You MUST respond with ONLY valid JSON. No text before or after:
             }
             return parsed;
         }
-        catch {
+        catch (parseErr) {
+            console.error('=== INGREDIENT SCAN PARSE ERROR ===', parseErr);
             return {
                 productName: "Unknown",
                 cannotRead: true,
