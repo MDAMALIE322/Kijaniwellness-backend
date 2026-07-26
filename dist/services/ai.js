@@ -52,7 +52,8 @@ Rules:
     try {
         const response = await groq.chat.completions.create({
             model: 'qwen/qwen3.6-27b',
-            max_tokens: 1000,
+            max_tokens: 2500,
+            response_format: { type: 'json_object' },
             messages: [{
                     role: 'user',
                     content: [
@@ -214,7 +215,8 @@ You MUST respond with ONLY valid JSON. No text before or after:
     try {
         const response = await groq.chat.completions.create({
             model: 'qwen/qwen3.6-27b',
-            max_tokens: 2000,
+            max_tokens: 3500,
+            response_format: { type: 'json_object' },
             messages: [{
                     role: 'user',
                     content: [
