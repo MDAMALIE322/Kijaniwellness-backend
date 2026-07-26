@@ -65,6 +65,9 @@ Rules:
                 }],
         });
         const text = response.choices[0]?.message?.content ?? '{"items":[]}';
+        console.log('=== RAW VISION MODEL RESPONSE ===');
+        console.log(text);
+        console.log('=== END RAW RESPONSE ===');
         const clean = text.replace(/```json|```/g, '').trim();
         let parsed = { items: [] };
         try {
@@ -72,6 +75,7 @@ Rules:
             const jsonMatch = clean.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 parsed = JSON.parse(jsonMatch[0]);
+                console.log('=== PARSED RESULT ===', JSON.stringify(parsed));
                 // If AI detected non-food image
                 if (parsed.notFood || !parsed.items || parsed.items.length === 0) {
                     return {
