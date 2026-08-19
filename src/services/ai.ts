@@ -3,6 +3,11 @@ import { safetyFilter } from '../utils/safetyFilter';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+// Vision model is env-configurable so a Groq deprecation is a Railway env change, not a deploy.
+// Fallback is tried automatically if the primary returns 404 (model decommissioned/not found).
+const VISION_MODEL = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-maverick-17b-128e-instruct';
+const VISION_FALLBACK = process.env.GROQ_VISION_FALLBACK || 'meta-llama/llama-4-scout-17b-16e-instruct';
+
 // Retry wrapper for Groq calls - handles rate limits (429) with backoff
 async function groqChatWithRetry(params: any, maxRetries = 2): Promise<any> {
   let lastErr: any;
@@ -11,6 +16,11 @@ async function groqChatWithRetry(params: any, maxRetries = 2): Promise<any> {
       return await groq.chat.completions.create(params);
     } catch (err: any) {
       lastErr = err;
+      // Model decommissioned / not found: retry once with the fallback vision model
+      if (err?.status === 404 && params?.model === VISION_MODEL && VISION_FALLBACK !== VISION_MODEL) {
+        console.log(`Vision model ${VISION_MODEL} returned 404, falling back to ${VISION_FALLBACK}`);
+        return await groqChatWithRetry({ ...params, model: VISION_FALLBACK }, maxRetries);
+      }
       if (err?.status === 429) {
         // Respect Groq's retry-after header if present, else backoff
         const retryAfter = parseFloat(err?.headers?.get?.('retry-after') ?? '3');
@@ -85,7 +95,7 @@ Rules:
 
   try {
     const response = await groqChatWithRetry({
-      model: 'qwen/qwen3.6-27b',
+      model: VISION_MODEL,
       max_tokens: 2500,
       response_format: { type: 'json_object' },
       messages: [{
@@ -259,7 +269,7 @@ You MUST respond with ONLY valid JSON. No text before or after:
 
   try {
     const response = await groqChatWithRetry({
-      model: 'qwen/qwen3.6-27b',
+      model: VISION_MODEL,
       max_tokens: 3500,
       response_format: { type: 'json_object' },
       messages: [{
