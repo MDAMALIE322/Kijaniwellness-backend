@@ -13,6 +13,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "apple-signin-auth": "^2.0.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
@@ -25,10 +26,10 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.7",
+    "prisma": "^5.22.0",
     "resend": "^6.12.2"
   },
   "devDependencies": {
-    "@prisma/client": "^5.22.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
@@ -36,7 +37,6 @@
     "@types/multer": "^2.1.0",
     "@types/node": "^25.6.0",
     "@types/nodemailer": "^8.0.0",
-    "prisma": "^5.22.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^6.0.3"
   }
