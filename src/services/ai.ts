@@ -5,8 +5,10 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // Vision model is env-configurable so a Groq deprecation is a Railway env change, not a deploy.
 // Fallback is tried automatically if the primary returns 404 (model decommissioned/not found).
-const VISION_MODEL = process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-maverick-17b-128e-instruct';
-const VISION_FALLBACK = process.env.GROQ_VISION_FALLBACK || 'meta-llama/llama-4-scout-17b-16e-instruct';
+const VISION_MODEL = process.env.GROQ_VISION_MODEL || 'qwen/qwen3.8-27b';
+const VISION_FALLBACK = process.env.GROQ_VISION_FALLBACK || 'qwen/qwen3.8-27b';
+// Text model also env-configurable; llama-3.3-70b-versatile was decommissioned by Groq.
+const TEXT_MODEL = process.env.GROQ_TEXT_MODEL || 'qwen/qwen3.8-27b';
 
 // Retry wrapper for Groq calls - handles rate limits (429) with backoff
 async function groqChatWithRetry(params: any, maxRetries = 2): Promise<any> {
@@ -186,7 +188,7 @@ Rules:
 
   try {
     const res = await groqChatWithRetry({
-      model: 'llama-3.3-70b-versatile',
+      model: TEXT_MODEL,
       max_tokens: 50,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -356,7 +358,7 @@ Rules:
 
   try {
     const res = await groqChatWithRetry({
-      model: 'llama-3.3-70b-versatile',
+      model: TEXT_MODEL,
       max_tokens: 400,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -424,7 +426,7 @@ You MUST respond with ONLY a valid JSON object. No explanations, no text before 
 
   try {
     const res = await groqChatWithRetry({
-      model: 'llama-3.3-70b-versatile',
+      model: TEXT_MODEL,
       max_tokens: 3000,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -529,7 +531,7 @@ You MUST respond with ONLY valid JSON:
 
   try {
     const res = await groqChatWithRetry({
-      model: "llama-3.3-70b-versatile",
+      model: TEXT_MODEL,
       max_tokens: 1000,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.1,
@@ -607,7 +609,7 @@ End with 1 relevant emoji only.`;
 
   try {
     const res = await groqChatWithRetry({
-      model: "llama-3.3-70b-versatile",
+      model: TEXT_MODEL,
       max_tokens: 150,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
@@ -639,7 +641,7 @@ Return ONLY valid JSON:
 
   try {
     const res = await groqChatWithRetry({
-      model: "llama-3.3-70b-versatile",
+      model: TEXT_MODEL,
       max_tokens: 200,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.8,

@@ -14,6 +14,12 @@ exports.generateSingleMeal = generateSingleMeal;
 const groq_sdk_1 = __importDefault(require("groq-sdk"));
 const safetyFilter_1 = require("../utils/safetyFilter");
 const groq = new groq_sdk_1.default({ apiKey: process.env.GROQ_API_KEY });
+// Vision model is env-configurable so a Groq deprecation is a Railway env change, not a deploy.
+// Fallback is tried automatically if the primary returns 404 (model decommissioned/not found).
+const VISION_MODEL = process.env.GROQ_VISION_MODEL || 'qwen/qwen3.8-27b';
+const VISION_FALLBACK = process.env.GROQ_VISION_FALLBACK || 'qwen/qwen3.8-27b';
+// Text model also env-configurable; llama-3.3-70b-versatile was decommissioned by Groq.
+const TEXT_MODEL = process.env.GROQ_TEXT_MODEL || 'qwen/qwen3.8-27b';
 // Retry wrapper for Groq calls - handles rate limits (429) with backoff
 async function groqChatWithRetry(params, maxRetries = 2) {
     let lastErr;
@@ -23,6 +29,11 @@ async function groqChatWithRetry(params, maxRetries = 2) {
         }
         catch (err) {
             lastErr = err;
+            // Model decommissioned / not found: retry once with the fallback vision model
+            if (err?.status === 404 && params?.model === VISION_MODEL && VISION_FALLBACK !== VISION_MODEL) {
+                console.log(`Vision model ${VISION_MODEL} returned 404, falling back to ${VISION_FALLBACK}`);
+                return await groqChatWithRetry({ ...params, model: VISION_FALLBACK }, maxRetries);
+            }
             if (err?.status === 429) {
                 // Respect Groq's retry-after header if present, else backoff
                 const retryAfter = parseFloat(err?.headers?.get?.('retry-after') ?? '3');
@@ -73,7 +84,7 @@ Rules:
 }`;
     try {
         const response = await groqChatWithRetry({
-            model: 'qwen/qwen3.6-27b',
+            model: VISION_MODEL,
             max_tokens: 2500,
             response_format: { type: 'json_object' },
             messages: [{
@@ -157,7 +168,7 @@ Rules:
 - Return only the sentence, nothing else`;
     try {
         const res = await groqChatWithRetry({
-            model: 'llama-3.3-70b-versatile',
+            model: TEXT_MODEL,
             max_tokens: 50,
             messages: [{ role: 'user', content: prompt }],
         });
@@ -236,7 +247,7 @@ You MUST respond with ONLY valid JSON. No text before or after:
 }`;
     try {
         const response = await groqChatWithRetry({
-            model: 'qwen/qwen3.6-27b',
+            model: VISION_MODEL,
             max_tokens: 3500,
             response_format: { type: 'json_object' },
             messages: [{
@@ -316,7 +327,7 @@ Rules:
 - No words: healthy/unhealthy, diagnose, treat, cure, disease`;
     try {
         const res = await groqChatWithRetry({
-            model: 'llama-3.3-70b-versatile',
+            model: TEXT_MODEL,
             max_tokens: 400,
             messages: [{ role: 'user', content: prompt }],
         });
@@ -379,7 +390,7 @@ You MUST respond with ONLY a valid JSON object. No explanations, no text before 
 }`;
     try {
         const res = await groqChatWithRetry({
-            model: 'llama-3.3-70b-versatile',
+            model: TEXT_MODEL,
             max_tokens: 3000,
             messages: [{ role: 'user', content: prompt }],
         });
@@ -468,7 +479,7 @@ You MUST respond with ONLY valid JSON:
 }`;
     try {
         const res = await groqChatWithRetry({
-            model: "llama-3.3-70b-versatile",
+            model: TEXT_MODEL,
             max_tokens: 1000,
             messages: [{ role: "user", content: prompt }],
             temperature: 0.1,
@@ -531,7 +542,7 @@ Do not use asterisks or markdown. Just plain motivating text.
 End with 1 relevant emoji only.`;
     try {
         const res = await groqChatWithRetry({
-            model: "llama-3.3-70b-versatile",
+            model: TEXT_MODEL,
             max_tokens: 150,
             messages: [{ role: "user", content: prompt }],
             temperature: 0.7,
@@ -557,7 +568,7 @@ Return ONLY valid JSON:
 { "name": "meal name", "portion": "portion sizes e.g. 1 cup rice, 150g chicken", "calories": 0, "protein": 0, "carbs": 0, "fat": 0 }`;
     try {
         const res = await groqChatWithRetry({
-            model: "llama-3.3-70b-versatile",
+            model: TEXT_MODEL,
             max_tokens: 200,
             messages: [{ role: "user", content: prompt }],
             temperature: 0.8,
